@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Map, Keyboard, Trophy, Clock } from 'lucide-react';
+import { ArrowLeft, Keyboard, Trophy, Clock } from 'lucide-react';
 import { gameCategories } from '../data/mockData';
 
 const CategoryPage = () => {
@@ -20,27 +20,8 @@ const CategoryPage = () => {
     );
   }
 
-  const gameModes = [
-    {
-      id: 'map',
-      title: 'Mapa Interactivo',
-      description: 'Haz clic en el mapa para seleccionar la ubicación correcta',
-      icon: Map,
-      gradient: 'from-blue-500 to-indigo-500',
-      bgPattern: 'bg-gradient-to-br from-blue-50 to-indigo-50'
-    },
-    {
-      id: 'typing',
-      title: 'Modo Escritura',
-      description: 'Escribe el nombre correcto usando tu teclado',
-      icon: Keyboard,
-      gradient: 'from-purple-500 to-pink-500',
-      bgPattern: 'bg-gradient-to-br from-purple-50 to-pink-50'
-    }
-  ];
-
-  const handleGameModeSelect = (mode) => {
-    navigate(`/game/${categoryId}/${mode}`);
+  const handleStartGame = () => {
+    navigate(`/game/${categoryId}`);
   };
 
   const handleViewStats = () => {
@@ -48,10 +29,12 @@ const CategoryPage = () => {
   };
 
   // Get best scores from localStorage
-  const getBestScore = (mode) => {
-    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}-${mode}`)) || [];
+  const getBestScore = () => {
+    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}`)) || [];
     return scores.length > 0 ? Math.max(...scores.map(s => s.score)) : 0;
   };
+
+  const bestScore = getBestScore();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-cyan-100">
@@ -79,47 +62,65 @@ const CategoryPage = () => {
           </Badge>
         </div>
 
-        {/* Game Modes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
-          {gameModes.map((mode) => {
-            const IconComponent = mode.icon;
-            const bestScore = getBestScore(mode.id);
-            
-            return (
-              <Card 
-                key={mode.id}
-                className={`transform transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer border-0 ${mode.bgPattern} backdrop-blur-sm`}
-                onClick={() => handleGameModeSelect(mode.id)}
+        {/* Game Mode */}
+        <div className="max-w-2xl mx-auto mb-12">
+          <Card className="transform transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer border-0 bg-gradient-to-br from-purple-50 to-pink-50 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mb-4 shadow-lg">
+                <Keyboard className="w-10 h-10 text-white" />
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
+                Modo Lista
+              </CardTitle>
+              <CardDescription className="text-gray-600 text-base leading-relaxed mb-4">
+                Escribe todos los nombres que puedas en cualquier orden. 
+                No importan mayúsculas, tildes o prefijos.
+              </CardDescription>
+              {bestScore > 0 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm font-semibold text-gray-700">
+                    Mejor puntuación: {bestScore}
+                  </span>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleStartGame}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3 transition-all duration-300 shadow-lg hover:shadow-xl"
               >
-                <CardHeader className="text-center pb-4">
-                  <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-r ${mode.gradient} flex items-center justify-center mb-4 shadow-lg`}>
-                    <IconComponent className="w-10 h-10 text-white" />
-                  </div>
-                  <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
-                    {mode.title}
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 text-base leading-relaxed mb-4">
-                    {mode.description}
-                  </CardDescription>
-                  {bestScore > 0 && (
-                    <div className="flex items-center justify-center gap-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span className="text-sm font-semibold text-gray-700">
-                        Mejor puntuación: {bestScore}
-                      </span>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    className={`w-full bg-gradient-to-r ${mode.gradient} hover:opacity-90 text-white font-semibold py-3 transition-all duration-300 shadow-lg hover:shadow-xl`}
-                  >
-                    Jugar Ahora
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                Comenzar Juego
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Game Instructions */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Cómo Jugar</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg text-center">
+              <div className="text-3xl mb-3">⏱️</div>
+              <h3 className="font-semibold text-gray-800 mb-2">60 Segundos</h3>
+              <p className="text-sm text-gray-600">Tienes un minuto para escribir todos los que recuerdes</p>
+            </div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg text-center">
+              <div className="text-3xl mb-3">📝</div>
+              <h3 className="font-semibold text-gray-800 mb-2">Cualquier Orden</h3>
+              <p className="text-sm text-gray-600">Escribe en el orden que quieras, se validará automáticamente</p>
+            </div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg text-center">
+              <div className="text-3xl mb-3">💡</div>
+              <h3 className="font-semibold text-gray-800 mb-2">Pistas Disponibles</h3>
+              <p className="text-sm text-gray-600">Usa hasta 3 pistas para revelar nombres</p>
+            </div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg text-center">
+              <div className="text-3xl mb-3">🎯</div>
+              <h3 className="font-semibold text-gray-800 mb-2">Flexible</h3>
+              <p className="text-sm text-gray-600">No importan tildes, mayúsculas o prefijos</p>
+            </div>
+          </div>
         </div>
 
         {/* Stats Section */}

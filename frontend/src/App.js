@@ -14,7 +14,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/category/:categoryId" element={<CategoryPage />} />
-          <Route path="/game/:categoryId/:gameMode" element={<GamePage />} />
+          <Route path="/game/:categoryId" element={<GamePage />} />
           <Route path="/stats/:categoryId" element={<StatsPage />} />
         </Routes>
         <Toaster />

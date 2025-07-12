@@ -13,13 +13,12 @@ const StatsPage = () => {
   const category = gameCategories[categoryId];
   
   // Get stats from localStorage
-  const getStats = (mode) => {
-    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}-${mode}`)) || [];
+  const getStats = () => {
+    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}`)) || [];
     return scores;
   };
 
-  const mapStats = getStats('map');
-  const typingStats = getStats('typing');
+  const allStats = getStats();
   
   const calculateStats = (scores) => {
     if (scores.length === 0) return null;
@@ -28,21 +27,24 @@ const StatsPage = () => {
     const avgScore = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;
     const totalGames = scores.length;
     const avgCorrect = scores.reduce((sum, s) => sum + s.correct, 0) / scores.length;
+    const bestCorrect = Math.max(...scores.map(s => s.correct));
     const bestAccuracy = Math.max(...scores.map(s => (s.correct / s.total) * 100));
     const avgHints = scores.reduce((sum, s) => sum + s.hintsUsed, 0) / scores.length;
+    const bestTime = Math.min(...scores.map(s => s.timeUsed));
     
     return {
       bestScore: Math.round(bestScore),
       avgScore: Math.round(avgScore),
       totalGames,
       avgCorrect: Math.round(avgCorrect * 10) / 10,
+      bestCorrect,
       bestAccuracy: Math.round(bestAccuracy * 10) / 10,
-      avgHints: Math.round(avgHints * 10) / 10
+      avgHints: Math.round(avgHints * 10) / 10,
+      bestTime
     };
   };
 
-  const mapStatsCalculated = calculateStats(mapStats);
-  const typingStatsCalculated = calculateStats(typingStats);
+  const statsCalculated = calculateStats(allStats);
 
   if (!category) {
     return (
@@ -93,125 +95,56 @@ const StatsPage = () => {
           </h1>
           <p className="text-xl text-gray-600 mb-2">{category.title}</p>
           <Badge variant="secondary" className="text-lg px-4 py-2">
-            {(mapStats.length + typingStats.length)} partidas jugadas
+            {allStats.length} partidas jugadas
           </Badge>
         </div>
 
-        {/* Stats Sections */}
+        {/* Stats Section */}
         <div className="space-y-12 max-w-6xl mx-auto">
-          {/* Map Mode Stats */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center mr-3">
-                <Target className="w-4 h-4 text-white" />
-              </div>
-              Modo Mapa Interactivo
-            </h2>
-            
-            {mapStatsCalculated ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard 
-                  title="Mejor Puntuación"
-                  value={mapStatsCalculated.bestScore}
-                  icon={Trophy}
-                  gradient="from-yellow-500 to-orange-500"
-                />
-                <StatCard 
-                  title="Puntuación Promedio"
-                  value={mapStatsCalculated.avgScore}
-                  icon={TrendingUp}
-                  gradient="from-green-500 to-emerald-500"
-                />
-                <StatCard 
-                  title="Partidas Jugadas"
-                  value={mapStatsCalculated.totalGames}
-                  icon={Clock}
-                  gradient="from-blue-500 to-indigo-500"
-                />
-                <StatCard 
-                  title="Promedio Correctas"
-                  value={mapStatsCalculated.avgCorrect}
-                  icon={Target}
-                  description="por partida"
-                  gradient="from-purple-500 to-pink-500"
-                />
-                <StatCard 
-                  title="Mejor Precisión"
-                  value={`${mapStatsCalculated.bestAccuracy}%`}
-                  icon={Trophy}
-                  gradient="from-cyan-500 to-blue-500"
-                />
-                <StatCard 
-                  title="Pistas Promedio"
-                  value={mapStatsCalculated.avgHints}
-                  icon={Lightbulb}
-                  description="por partida"
-                  gradient="from-indigo-500 to-purple-500"
-                />
-              </div>
-            ) : (
-              <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
-                <CardContent className="text-center py-12">
-                  <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg">
-                    No has jugado en modo mapa interactivo aún
-                  </p>
-                  <Button 
-                    onClick={() => navigate(`/game/${categoryId}/map`)}
-                    className="mt-4 bg-gradient-to-r from-blue-500 to-indigo-500 hover:opacity-90"
-                  >
-                    Jugar Ahora
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Typing Mode Stats */}
           <div>
             <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mr-3">
-                <Clock className="w-4 h-4 text-white" />
+                <Trophy className="w-4 h-4 text-white" />
               </div>
-              Modo Escritura
+              Estadísticas Generales
             </h2>
             
-            {typingStatsCalculated ? (
+            {statsCalculated ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <StatCard 
                   title="Mejor Puntuación"
-                  value={typingStatsCalculated.bestScore}
+                  value={statsCalculated.bestScore}
                   icon={Trophy}
                   gradient="from-yellow-500 to-orange-500"
                 />
                 <StatCard 
                   title="Puntuación Promedio"
-                  value={typingStatsCalculated.avgScore}
+                  value={statsCalculated.avgScore}
                   icon={TrendingUp}
                   gradient="from-green-500 to-emerald-500"
                 />
                 <StatCard 
                   title="Partidas Jugadas"
-                  value={typingStatsCalculated.totalGames}
+                  value={statsCalculated.totalGames}
                   icon={Clock}
                   gradient="from-blue-500 to-indigo-500"
                 />
                 <StatCard 
-                  title="Promedio Correctas"
-                  value={typingStatsCalculated.avgCorrect}
+                  title="Mejor Resultado"
+                  value={`${statsCalculated.bestCorrect}/${category.data.length}`}
                   icon={Target}
-                  description="por partida"
+                  description="respuestas correctas"
                   gradient="from-purple-500 to-pink-500"
                 />
                 <StatCard 
                   title="Mejor Precisión"
-                  value={`${typingStatsCalculated.bestAccuracy}%`}
+                  value={`${statsCalculated.bestAccuracy}%`}
                   icon={Trophy}
                   gradient="from-cyan-500 to-blue-500"
                 />
                 <StatCard 
                   title="Pistas Promedio"
-                  value={typingStatsCalculated.avgHints}
+                  value={statsCalculated.avgHints}
                   icon={Lightbulb}
                   description="por partida"
                   gradient="from-indigo-500 to-purple-500"
@@ -220,13 +153,13 @@ const StatsPage = () => {
             ) : (
               <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
                 <CardContent className="text-center py-12">
-                  <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg">
-                    No has jugado en modo escritura aún
+                  <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg mb-4">
+                    No has jugado esta categoría aún
                   </p>
                   <Button 
-                    onClick={() => navigate(`/game/${categoryId}/typing`)}
-                    className="mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                    onClick={() => navigate(`/game/${categoryId}`)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
                   >
                     Jugar Ahora
                   </Button>
@@ -236,44 +169,41 @@ const StatsPage = () => {
           </div>
 
           {/* Recent Games */}
-          {(mapStats.length > 0 || typingStats.length > 0) && (
+          {allStats.length > 0 && (
             <div>
               <h2 className="text-3xl font-bold text-gray-800 mb-6">Partidas Recientes</h2>
               <div className="space-y-4">
-                {[...mapStats, ...typingStats]
+                {allStats
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .slice(0, 5)
-                  .map((game, index) => {
-                    const isMapMode = mapStats.includes(game);
-                    return (
-                      <Card key={index} className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <Badge 
-                                variant={isMapMode ? "default" : "secondary"}
-                                className="px-3 py-1"
-                              >
-                                {isMapMode ? "Mapa" : "Escritura"}
-                              </Badge>
-                              <div>
-                                <p className="font-semibold text-gray-800">
-                                  {game.correct}/{game.total} correctas
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {new Date(game.date).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-2xl font-bold text-gray-800">{game.score}</p>
-                              <p className="text-sm text-gray-600">puntos</p>
+                  .slice(0, 10)
+                  .map((game, index) => (
+                    <Card key={index} className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <Badge 
+                              variant="secondary"
+                              className="px-3 py-1"
+                            >
+                              Lista
+                            </Badge>
+                            <div>
+                              <p className="font-semibold text-gray-800">
+                                {game.correct}/{game.total} correctas ({Math.round((game.correct/game.total)*100)}%)
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {new Date(game.date).toLocaleDateString()} - {game.timeUsed}s usados
+                              </p>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-gray-800">{game.score}</p>
+                            <p className="text-sm text-gray-600">puntos</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             </div>
           )}

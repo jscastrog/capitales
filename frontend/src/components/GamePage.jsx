@@ -7,32 +7,29 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { ArrowLeft, Clock, Trophy, Lightbulb, RotateCcw, CheckCircle } from 'lucide-react';
 import { gameCategories } from '../data/mockData';
-import MapGame from './MapGame';
 import { useToast } from '../hooks/use-toast';
+import { normalizeText, checkAnswer, getRandomHint } from '../utils/textUtils';
 
 const GamePage = () => {
-  const { categoryId, gameMode } = useParams();
+  const { categoryId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const category = gameCategories[categoryId];
-  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
   const [gameActive, setGameActive] = useState(false);
   const [gameCompleted, setGameCompleted] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState([]);
-  const [wrongAnswers, setWrongAnswers] = useState([]);
   const [hintsUsed, setHintsUsed] = useState(0);
-  const [showHint, setShowHint] = useState('');
-  const [shuffledQuestions, setShuffledQuestions] = useState([]);
+  const [currentHint, setCurrentHint] = useState('');
+  const [remainingAnswers, setRemainingAnswers] = useState([]);
 
-  // Initialize shuffled questions
+  // Initialize remaining answers
   useEffect(() => {
     if (category) {
-      const shuffled = [...category.data].sort(() => Math.random() - 0.5);
-      setShuffledQuestions(shuffled.slice(0, 20)); // Take first 20 for the game
+      setRemainingAnswers([...category.data]);
     }
   }, [category]);
 
@@ -41,7 +38,7 @@ const GamePage = () => {
     let timer;
     if (gameActive && timeLeft > 0) {
       timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && gameActive) {
       endGame();
     }
     return () => clearTimeout(timer);
@@ -49,15 +46,14 @@ const GamePage = () => {
 
   const startGame = () => {
     setGameActive(true);
-    setCurrentQuestion(0);
     setScore(0);
     setTimeLeft(60);
     setCorrectAnswers([]);
-    setWrongAnswers([]);
     setHintsUsed(0);
-    setShowHint('');
+    setCurrentHint('');
     setGameCompleted(false);
     setUserAnswer('');
+    setRemainingAnswers([...category.data]);
   };
 
   const endGame = useCallback(() => {
@@ -71,69 +67,75 @@ const GamePage = () => {
     setScore(finalScore);
     
     // Save score to localStorage
-    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}-${gameMode}`)) || [];
+    const scores = JSON.parse(localStorage.getItem(`geoadivina-scores-${categoryId}`)) || [];
     scores.push({
       score: finalScore,
       correct: correctAnswers.length,
-      total: shuffledQuestions.length,
+      total: category.data.length,
       timeUsed: 60 - timeLeft,
       hintsUsed: hintsUsed,
       date: new Date().toISOString()
     });
-    localStorage.setItem(`geoadivina-scores-${categoryId}-${gameMode}`, JSON.stringify(scores));
-  }, [categoryId, gameMode, correctAnswers.length, timeLeft, hintsUsed, shuffledQuestions.length]);
+    localStorage.setItem(`geoadivina-scores-${categoryId}`, JSON.stringify(scores));
+  }, [categoryId, correctAnswers.length, timeLeft, hintsUsed, category.data.length]);
 
-  const checkAnswer = (answer) => {
-    const currentItem = shuffledQuestions[currentQuestion];
-    const isCorrect = answer.toLowerCase().trim() === currentItem.name.toLowerCase().trim();
+  const handleAnswerSubmit = (e) => {
+    e.preventDefault();
     
-    if (isCorrect) {
-      setCorrectAnswers([...correctAnswers, currentItem]);
+    if (!userAnswer.trim()) return;
+    
+    const foundAnswer = checkAnswer(userAnswer, remainingAnswers);
+    
+    if (foundAnswer) {
+      // Correct answer
+      const newCorrectAnswers = [...correctAnswers, foundAnswer];
+      const newRemainingAnswers = remainingAnswers.filter(a => a.id !== foundAnswer.id);
+      
+      setCorrectAnswers(newCorrectAnswers);
+      setRemainingAnswers(newRemainingAnswers);
+      setUserAnswer('');
+      setCurrentHint('');
+      
       toast({
         title: "¡Correcto!",
-        description: `${currentItem.name} es la respuesta correcta`,
+        description: `${foundAnswer.name} - ${newCorrectAnswers.length}/${category.data.length}`,
       });
+      
+      // Check if all answers found
+      if (newRemainingAnswers.length === 0) {
+        setTimeout(() => endGame(), 1000);
+      }
     } else {
-      setWrongAnswers([...wrongAnswers, { ...currentItem, userAnswer: answer }]);
-      toast({
-        title: "Incorrecto",
-        description: `La respuesta correcta era: ${currentItem.name}`,
-        variant: "destructive"
-      });
-    }
-    
-    nextQuestion();
-  };
-
-  const nextQuestion = () => {
-    setUserAnswer('');
-    setShowHint('');
-    
-    if (currentQuestion + 1 < shuffledQuestions.length) {
-      setCurrentQuestion(currentQuestion + 1);
-    } else {
-      endGame();
-    }
-  };
-
-  const handleSubmitAnswer = (e) => {
-    e.preventDefault();
-    if (userAnswer.trim()) {
-      checkAnswer(userAnswer);
+      // Check if already answered
+      const alreadyAnswered = checkAnswer(userAnswer, correctAnswers);
+      if (alreadyAnswered) {
+        toast({
+          title: "Ya respondiste",
+          description: `${alreadyAnswered.name} ya está en tu lista`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "No encontrado",
+          description: "Intenta con otra respuesta o usa una pista",
+          variant: "destructive"
+        });
+      }
+      setUserAnswer('');
     }
   };
 
   const useHint = () => {
-    if (hintsUsed < 3 && shuffledQuestions[currentQuestion]) {
-      const currentName = shuffledQuestions[currentQuestion].name;
-      const revealLength = Math.min(hintsUsed + 1, currentName.length - 1);
-      const hint = currentName.substring(0, revealLength) + '_'.repeat(currentName.length - revealLength);
-      setShowHint(hint);
-      setHintsUsed(hintsUsed + 1);
+    if (hintsUsed < 3 && remainingAnswers.length > 0) {
+      const hintData = getRandomHint(remainingAnswers);
+      if (hintData) {
+        setCurrentHint(`${hintData.hint} (${hintData.answer.name.length} letras)`);
+        setHintsUsed(hintsUsed + 1);
+      }
     }
   };
 
-  if (!category || shuffledQuestions.length === 0) {
+  if (!category) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl text-gray-600">Cargando...</p>
@@ -141,8 +143,7 @@ const GamePage = () => {
     );
   }
 
-  const currentItem = shuffledQuestions[currentQuestion];
-  const progress = ((currentQuestion + 1) / shuffledQuestions.length) * 100;
+  const progress = (correctAnswers.length / category.data.length) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-cyan-100">
@@ -174,6 +175,7 @@ const GamePage = () => {
           </div>
         </div>
 
+        {/* Game Start Screen */}
         {!gameActive && !gameCompleted && (
           <div className="text-center">
             <Card className="max-w-md mx-auto bg-white/70 backdrop-blur-sm border-0 shadow-xl">
@@ -181,14 +183,12 @@ const GamePage = () => {
                 <CardTitle className="text-2xl font-bold text-gray-800">
                   {category.title}
                 </CardTitle>
-                <p className="text-gray-600">
-                  Modo: {gameMode === 'map' ? 'Mapa Interactivo' : 'Escritura'}
-                </p>
+                <p className="text-gray-600">Modo Lista</p>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 mb-6">
-                  Tienes 60 segundos para responder tantas preguntas como puedas. 
-                  ¡Puedes usar hasta 3 pistas!
+                  Tienes 60 segundos para escribir todos los {category.data.length} elementos que puedas recordar.
+                  ¡Escribe en cualquier orden!
                 </p>
                 <Button 
                   onClick={startGame}
@@ -201,76 +201,95 @@ const GamePage = () => {
           </div>
         )}
 
+        {/* Active Game */}
         {gameActive && (
           <div className="max-w-4xl mx-auto">
             {/* Progress and Stats */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium text-gray-600">
-                  Pregunta {currentQuestion + 1} de {shuffledQuestions.length}
+                  Encontrados: {correctAnswers.length} de {category.data.length}
                 </span>
                 <span className="text-sm font-medium text-gray-600">
-                  Correctas: {correctAnswers.length}
+                  Restantes: {remainingAnswers.length}
                 </span>
               </div>
               <Progress value={progress} className="w-full" />
             </div>
 
-            {gameMode === 'map' ? (
-              <MapGame 
-                currentItem={currentItem}
-                category={category}
-                onAnswer={checkAnswer}
-                showHint={showHint}
-              />
-            ) : (
+            {/* Game Input */}
+            <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-xl mb-6">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl font-bold text-gray-800 mb-4">
+                  Lista todos los {category.title.toLowerCase()} que recuerdes
+                </CardTitle>
+                {currentHint && (
+                  <Badge variant="secondary" className="text-lg px-4 py-2">
+                    💡 Pista: {currentHint}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAnswerSubmit} className="space-y-4">
+                  <Input
+                    type="text"
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    placeholder="Escribe un nombre y presiona Enter..."
+                    className="text-lg py-3"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      type="submit" 
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 hover:opacity-90"
+                      disabled={!userAnswer.trim()}
+                    >
+                      Agregar
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={useHint}
+                      disabled={hintsUsed >= 3 || remainingAnswers.length === 0}
+                      className="px-4"
+                    >
+                      <Lightbulb className="w-4 h-4" />
+                      {hintsUsed}/3
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Correct Answers List */}
+            {correctAnswers.length > 0 && (
               <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-xl">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-2xl font-bold text-gray-800 mb-4">
-                    ¿Cómo se llama este lugar?
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
+                    Respuestas Correctas ({correctAnswers.length})
                   </CardTitle>
-                  {showHint && (
-                    <Badge variant="secondary" className="text-lg px-4 py-2">
-                      Pista: {showHint}
-                    </Badge>
-                  )}
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmitAnswer} className="space-y-4">
-                    <Input
-                      type="text"
-                      value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                      placeholder="Escribe tu respuesta aquí..."
-                      className="text-lg py-3"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <Button 
-                        type="submit" 
-                        className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 hover:opacity-90"
-                        disabled={!userAnswer.trim()}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {correctAnswers.map((answer, index) => (
+                      <Badge 
+                        key={answer.id} 
+                        variant="secondary" 
+                        className="text-sm px-3 py-1 bg-green-100 text-green-800"
                       >
-                        Responder
-                      </Button>
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        onClick={useHint}
-                        disabled={hintsUsed >= 3}
-                        className="px-4"
-                      >
-                        <Lightbulb className="w-4 h-4" />
-                        {hintsUsed}/3
-                      </Button>
-                    </div>
-                  </form>
+                        {answer.name}
+                      </Badge>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
           </div>
         )}
 
+        {/* Game Completed */}
         {gameCompleted && (
           <div className="text-center">
             <Card className="max-w-md mx-auto bg-white/70 backdrop-blur-sm border-0 shadow-xl">
@@ -279,20 +298,37 @@ const GamePage = () => {
                   <Trophy className="w-10 h-10 text-white" />
                 </div>
                 <CardTitle className="text-2xl font-bold text-gray-800">
-                  ¡Juego Completado!
+                  ¡Tiempo Agotado!
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <p className="text-2xl font-bold text-green-600">{correctAnswers.length}</p>
-                    <p className="text-sm text-gray-600">Correctas</p>
+                    <p className="text-sm text-gray-600">de {category.data.length}</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-blue-600">{score}</p>
                     <p className="text-sm text-gray-600">Puntuación Final</p>
                   </div>
                 </div>
+                
+                <div className="text-left bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Respuestas que faltaron:</p>
+                  <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                    {remainingAnswers.slice(0, 10).map((answer) => (
+                      <span key={answer.id} className="text-xs text-gray-600">
+                        • {answer.name}
+                      </span>
+                    ))}
+                    {remainingAnswers.length > 10 && (
+                      <span className="text-xs text-gray-500">
+                        ... y {remainingAnswers.length - 10} más
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="flex gap-2">
                   <Button 
                     onClick={startGame}
